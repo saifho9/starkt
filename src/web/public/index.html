@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة تحكم تذاكر الديسكورد</title>
+    <style>
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: #050e1f;
+        color: #fff;
+        margin: 0;
+        padding: 0;
+      }
+      .toolbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        margin: -12px -12px 16px -12px;
+        background: rgba(5, 18, 50, 0.92);
+        backdrop-filter: blur(6px);
+        border-bottom: 1px solid #1e40af;
+      }
+      .toolbar .actions { display: flex; gap: 8px; }
+      .muted { color: #94a3b8; font-size: 14px; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 16px;
+      }
+      .card { background:#071526; border:1px solid #1d4ed8; border-radius:12px; padding:16px; }
+      .span-8 { grid-column: span 8; }
+      .span-4 { grid-column: span 4; }
+      .option-actions { display:flex; gap:8px; margin-top:8px; }
+      .btn-secondary { background:#1e3a5f; }
+      .btn-danger { background:#ef4444; }
+      header {
+        padding: 24px;
+        background: #0a1836;
+        text-align: center;
+        border-bottom: 1px solid #1e3a8a;
+      }
+      main {
+        max-width: 960px;
+        margin: 24px auto;
+        background: #0d1f45;
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.8);
+      }
+      section {
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+        border-bottom: 1px solid #1e40af;
+      }
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+      }
+      input,
+      textarea,
+      select {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #1d4ed8;
+        background: #050e1f;
+        color: #fff;
+        margin-bottom: 12px;
+      }
+      button {
+        padding: 12px 16px;
+        border: none;
+        border-radius: 10px;
+        background: linear-gradient(120deg, #2563eb, #3b82f6);
+        color: #fff;
+        font-size: 16px;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      }
+      button:hover {
+        transform: translateY(-2px);
+      }
+      .flex {
+        display: flex;
+        gap: 16px;
+      }
+      .flex > div {
+        flex: 1;
+      }
+      .menu-item {
+        background: #071526;
+        padding: 12px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+        border: 1px solid #1d4ed8;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>لوحة التحكم في التذاكر</h1>
+      <p id="credit" class="muted" style="margin-top:6px"></p>
+    </header>
+    <main>
+      <div class="toolbar">
+        <div class="muted">لوحة التحكم</div>
+        <div style="flex:1;text-align:center"><span id="devBadge" class="muted" dir="ltr"></span></div>
+        <div class="actions">
+          <button id="toolbarSave" class="btn-secondary">حفظ</button>
+          <button id="toolbarPublish">نشر</button>
+        </div>
+      </div>
+      <section>
+        <label for="guildSelect">اختر السيرفر</label>
+        <select id="guildSelect"></select>
+        <div class="flex">
+          <button id="fetchPanel">تحميل الإعدادات</button>
+          <button id="publishPanel">نشر لوحة التذاكر</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="grid">
+          <div class="span-8 card">
+            <label for="channelId">القناة التي يُرسل فيها اللوحة</label>
+            <select id="channelId"></select>
+            <label for="ticketCategoryId" style="margin-top:8px">التصنيف الذي تُنشأ فيه التذاكر</label>
+            <select id="ticketCategoryId">
+              <option value="">اختياري</option>
+            </select>
+            <label for="selectPlaceholder" style="margin-top:8px">نص القائمة (Placeholder) اختياري</label>
+            <input id="selectPlaceholder" placeholder="اختر نوع التذكرة" />
+            <div class="card" style="margin-top:8px">
+              <label for="claimLogChannelId">قناة لوج الاستلام (اختياري)</label>
+              <select id="claimLogChannelId">
+                <option value="">بدون</option>
+              </select>
+              <label for="closeLogChannelId">قناة لوج الإغلاق (اختياري)</label>
+              <select id="closeLogChannelId">
+                <option value="">بدون</option>
+              </select>
+              <div class="flex" style="margin-top:8px; align-items:center">
+                <div style="flex:2">
+                  <label for="resetUserId">تصفير لعضو محدد (User ID) اختياري</label>
+                  <input id="resetUserId" placeholder="123456789012345678" />
+                </div>
+                <button id="resetStats" style="width:auto;height:38px;margin-inline-start:8px">تصفير الإحصائيات</button>
+              </div>
+              <div style="margin-top:12px">
+                <div class="flex" style="justify-content: space-between; align-items:center">
+                  <h3 class="muted">إحصائيات الاستلام</h3>
+                  <button id="refreshStats" class="btn-secondary" style="width:auto">تحديث الإحصائيات</button>
+                </div>
+                <div style="overflow:auto">
+                  <table id="statsTable" style="width:100%; border-collapse: collapse; margin-top:8px">
+                    <thead>
+                      <tr>
+                        <th style="text-align:right; padding:6px; border-bottom:1px solid #1e40af">المستخدم</th>
+                        <th style="text-align:right; padding:6px; border-bottom:1px solid #1e40af">ID</th>
+                        <th style="text-align:right; padding:6px; border-bottom:1px solid #1e40af">التذاكر المستلمة</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="span-4 card">
+            <label for="staffRoles">أدوار الطاقم</label>
+            <div class="flex" style="align-items: flex-end">
+              <div style="flex: 2">
+                <select id="availableRoles"></select>
+              </div>
+              <button type="button" id="addRole" style="flex: 1">إضافة الرول</button>
+            </div>
+            <ul id="staffRoles" style="list-style:none;padding:0;margin-top:12px"></ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="grid">
+          <div class="span-8 card">
+            <label for="embedTitle">عنوان الـ Embed</label>
+            <input id="embedTitle" placeholder="🎟️ الدعم الفني" />
+            <label for="embedDescription">وصف الـ Embed (يظهر في رسالة اللوحة)</label>
+            <textarea id="embedDescription" rows="4" placeholder="اختر نوع التذكرة لبدء المحادثة"></textarea>
+            <label for="ticketMessage">رسالة التذكرة (تظهر داخل التيكت)</label>
+            <textarea id="ticketMessage" rows="3" placeholder="يرجى وصف مشكلتك وسيقوم الفريق بمساعدتك قريبًا."></textarea>
+          </div>
+          <div class="span-4 card">
+            <label for="embedColor">لون الـ Embed</label>
+            <div class="flex" style="align-items:center">
+              <input id="embedColor" type="color" value="#5865f2" style="flex:0" />
+              <div id="colorPreview" style="flex:1;height:36px;border-radius:8px;border:1px solid #1d4ed8;margin-inline-start:8px;display:flex;align-items:center;justify-content:center;">
+                <span id="colorPreviewText" class="muted"></span>
+              </div>
+            </div>
+            <button id="applyColor" style="margin-top:8px">تطبيق اللون</button>
+            <label for="embedImageUrl">رابط صورة الـ Embed (اختياري)</label>
+            <input id="embedImageUrl" placeholder="https://.../image.png" />
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="flex" style="align-items: center; justify-content: space-between">
+          <h2>خيارات القائمة <span id="menuCount" class="muted"></span></h2>
+          <div class="actions">
+            <button id="addMenuOption" style="width: auto">إضافة خيار</button>
+          </div>
+        </div>
+        <div id="menuOptions"></div>
+      </section>
+
+      <section>
+        <button id="savePanel">حفظ الإعدادات</button>
+      </section>
+    </main>
+
+    <script>
+      const guildSelect = document.getElementById('guildSelect');
+      const channelSelect = document.getElementById('channelId');
+      const ticketCategorySelect = document.getElementById('ticketCategoryId');
+      const availableRolesSelect = document.getElementById('availableRoles');
+      const staffRolesList = document.getElementById('staffRoles');
+      const embedTitleInput = document.getElementById('embedTitle');
+      const embedDescriptionInput = document.getElementById('embedDescription');
+      const embedColorInput = document.getElementById('embedColor');
+      const colorPreview = document.getElementById('colorPreview');
+      const colorPreviewText = document.getElementById('colorPreviewText');
+      const embedImageUrlInput = document.getElementById('embedImageUrl');
+      const ticketMessageInput = document.getElementById('ticketMessage');
+      const selectPlaceholderInput = document.getElementById('selectPlaceholder');
+      const claimLogChannelSelect = document.getElementById('claimLogChannelId');
+      const closeLogChannelSelect = document.getElementById('closeLogChannelId');
+      const menuContainer = document.getElementById('menuOptions');
+      const resetUserIdInput = document.getElementById('resetUserId');
+      const statsTable = document.getElementById('statsTable');
+
+      document.getElementById('fetchPanel').addEventListener('click', async () => {
+        await fetchResources();
+        await fetchPanel();
+      });
+
+      document.getElementById('savePanel').addEventListener('click', savePanel);
+      document.getElementById('publishPanel').addEventListener('click', publishPanel);
+      document.getElementById('toolbarSave').addEventListener('click', savePanel);
+      document.getElementById('toolbarPublish').addEventListener('click', publishPanel);
+      document.getElementById('addMenuOption').addEventListener('click', () => addMenuOption());
+      document.getElementById('addRole').addEventListener('click', addRoleToList);
+      document.getElementById('applyColor').addEventListener('click', savePanel);
+      document.getElementById('resetStats').addEventListener('click', resetStats);
+      document.getElementById('refreshStats').addEventListener('click', loadStats);
+      guildSelect.addEventListener('change', async () => {
+        if (!guildSelect.value) return;
+        await fetchResources();
+        await fetchPanel();
+        await loadStats();
+      });
+
+      function updateColorPreview() {
+        const hex = embedColorInput.value || '#5865f2';
+        colorPreview.style.background = hex;
+        colorPreviewText.textContent = hex.toUpperCase();
+      }
+      embedColorInput.addEventListener('input', updateColorPreview);
+
+      function createMenuDom(option = { label: '', description: '' }) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'menu-item';
+        wrapper.innerHTML = `
+          <input type="hidden" value="${option.value || ''}" class="menu-value" />
+          <div class="flex" style="gap:12px">
+            <div style="flex:2">
+              <label>العنوان</label>
+              <input value="${option.label}" class="menu-label" />
+            </div>
+          </div>
+          <label>الوصف</label>
+          <input value="${option.description}" class="menu-description" />
+          <div class="option-actions">
+            <button type="button" class="up btn-secondary">▲ لأعلى</button>
+            <button type="button" class="down btn-secondary">▼ لأسفل</button>
+            <button type="button" class="dup btn-secondary">نسخ</button>
+            <button type="button" class="remove btn-danger">حذف</button>
+          </div>
+        `;
+        wrapper.querySelector('.remove').addEventListener('click', () => { wrapper.remove(); updateMenuCount(); });
+        wrapper.querySelector('.up').addEventListener('click', () => moveOption(wrapper, -1));
+        wrapper.querySelector('.down').addEventListener('click', () => moveOption(wrapper, 1));
+        wrapper.querySelector('.dup').addEventListener('click', () => duplicateOption(wrapper));
+        menuContainer.appendChild(wrapper);
+        updateMenuCount();
+      }
+
+      function addMenuOption(option) {
+        createMenuDom({ label: option?.label || '', value: option?.value || '', description: option?.description || '' });
+      }
+
+      function updateMenuCount() {
+        const count = menuContainer.querySelectorAll('.menu-item').length;
+        const el = document.getElementById('menuCount');
+        if (el) el.textContent = `(${count}/25)`;
+      }
+
+      function moveOption(wrapper, delta) {
+        const items = [...menuContainer.querySelectorAll('.menu-item')];
+        const idx = items.indexOf(wrapper);
+        const target = idx + delta;
+        if (target < 0 || target >= items.length) return;
+        if (delta < 0) menuContainer.insertBefore(wrapper, items[target]);
+        else menuContainer.insertBefore(items[target], wrapper);
+      }
+
+      function duplicateOption(wrapper) {
+        const label = wrapper.querySelector('.menu-label').value;
+        const description = wrapper.querySelector('.menu-description').value;
+        createMenuDom({ label, description });
+      }
+
+      function addRoleChip(roleId) {
+        if (!roleId) return;
+        const exists = !![...staffRolesList.querySelectorAll('li')].find(
+          (li) => li.dataset.id === roleId
+        );
+        if (exists) return;
+        const li = document.createElement('li');
+        li.dataset.id = roleId;
+        li.style.display = 'inline-flex';
+        li.style.alignItems = 'center';
+        li.style.gap = '8px';
+        li.style.border = '1px solid #1d4ed8';
+        li.style.padding = '6px 10px';
+        li.style.borderRadius = '999px';
+        li.style.margin = '4px';
+        const opt = [...availableRolesSelect.options].find((o) => o.value === roleId);
+        li.textContent = opt ? opt.textContent : roleId;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = 'إزالة';
+        btn.style.marginInlineStart = '8px';
+        btn.addEventListener('click', () => li.remove());
+        li.appendChild(btn);
+        staffRolesList.appendChild(li);
+      }
+
+      function addRoleToList() {
+        const roleId = availableRolesSelect.value;
+        if (!roleId) return;
+        addRoleChip(roleId);
+      }
+
+      function collectRoleIds() {
+        return [...staffRolesList.querySelectorAll('li')].map((li) => li.dataset.id);
+      }
+
+      function collectMenuOptions() {
+        return [...menuContainer.querySelectorAll('.menu-item')].map((item) => ({
+          label: item.querySelector('.menu-label').value,
+          value: item.querySelector('.menu-value').value,
+          description: item.querySelector('.menu-description').value
+        }));
+      }
+
+      async function fetchResources() {
+        const guildId = guildSelect.value;
+        if (!guildId) return alert('اكتب معرّف السيرفر أولاً');
+        const res = await fetch(`/api/guilds/${guildId}/resources`, { cache: 'no-store' });
+        if (!res.ok) return alert('تعذر تحميل القنوات/التصنيفات/الأدوار');
+        const data = await res.json();
+        const channelOptionsHtml = data.channels
+          .map((ch) => `<option value="${ch.id}">${ch.name}</option>`)
+          .join('');
+        channelSelect.innerHTML = channelOptionsHtml;
+        claimLogChannelSelect.innerHTML = '<option value="">بدون</option>' + channelOptionsHtml;
+        closeLogChannelSelect.innerHTML = '<option value="">بدون</option>' + channelOptionsHtml;
+        ticketCategorySelect.innerHTML =
+          '<option value="">اختياري</option>' +
+          data.categories.map((cat) => `<option value="${cat.id}">${cat.name}</option>`).join('');
+        availableRolesSelect.innerHTML = data.roles
+          .map((role) => `<option value="${role.id}">${role.name}</option>`)
+          .join('');
+      }
+
+      async function fetchPanel() {
+        const guildId = guildSelect.value;
+        if (!guildId) return;
+        const res = await fetch(`/api/guilds/${guildId}/panel`, { cache: 'no-store' });
+        if (!res.ok) return alert('تعذر تحميل الإعدادات');
+        const panel = await res.json();
+        if (!panel) return; // no panel saved yet — stay on blank form
+        channelSelect.value = panel.channelId;
+        ticketCategorySelect.value = panel.ticketCategoryId ?? '';
+        staffRolesList.innerHTML = '';
+        (panel.staffRoleIds ?? []).forEach(addRoleChip);
+        embedTitleInput.value = panel.embedTitle;
+        embedDescriptionInput.value = panel.embedDescription;
+        embedColorInput.value = `#${(panel.embedColor ?? 0).toString(16).padStart(6, '0')}`;
+        updateColorPreview();
+        embedImageUrlInput.value = panel.embedImageUrl || '';
+        ticketMessageInput.value = panel.ticketMessage || '';
+        selectPlaceholderInput.value = panel.selectPlaceholder || '';
+        claimLogChannelSelect.value = panel.claimLogChannelId || '';
+        closeLogChannelSelect.value = panel.closeLogChannelId || '';
+        menuContainer.innerHTML = '';
+        panel.menuOptions.forEach(addMenuOption);
+      }
+
+      function slugify(text) {
+        return (text || '')
+          .toString()
+          .trim()
+          .toLowerCase()
+          .replace(/[^\p{L}\p{N}]+/gu, '_')
+          .replace(/^_+|_+$/g, '')
+          .slice(0, 50) || 'option';
+      }
+
+      function sanitizeMenuOptions(options) {
+        let normalized = options
+          .map((o) => ({
+            label: (o.label || '').trim(),
+            value: (o.value || '').trim(),
+            description: (o.description || '').trim().slice(0, 100)
+          }))
+          .filter((o) => o.label);
+
+        normalized = normalized.map((o) => ({
+          ...o,
+          value: o.value || slugify(o.label)
+        }));
+
+        const seen = new Map();
+        normalized = normalized.map((o) => {
+          let base = o.value;
+          if (!base) base = slugify(o.label);
+          let candidate = base;
+          let i = 2;
+          while (seen.has(candidate)) {
+            candidate = `${base}-${i++}`;
+          }
+          seen.set(candidate, true);
+          return { ...o, value: candidate };
+        });
+
+        return normalized;
+      }
+
+      async function savePanel() {
+        const guildId = guildSelect.value;
+        if (!guildId) return alert('اكتب معرّف السيرفر');
+        const rawMenuOptions = collectMenuOptions();
+        const menuOptions = sanitizeMenuOptions(rawMenuOptions);
+        if (menuOptions.length === 0) {
+          return alert('أضف خياراً واحداً على الأقل وبحيث يحتوي على العنوان والقيمة');
+        }
+        const values = menuOptions.map((o) => o.value);
+        const hasDup = new Set(values).size !== values.length;
+        if (hasDup) {
+          return alert('توجد قيم مكررة لا يمكن حفظها. عدّل القيم ثم حاول مرة أخرى.');
+        }
+        const payload = {
+          channelId: channelSelect.value,
+          ticketCategoryId: ticketCategorySelect.value || undefined,
+          staffRoleIds: collectRoleIds(),
+          embedTitle: embedTitleInput.value,
+          embedDescription: embedDescriptionInput.value,
+          embedColor: embedColorInput.value,
+          embedImageUrl: embedImageUrlInput.value,
+          ticketMessage: ticketMessageInput.value,
+          selectPlaceholder: selectPlaceholderInput.value,
+          claimLogChannelId: claimLogChannelSelect.value || undefined,
+          closeLogChannelId: closeLogChannelSelect.value || undefined,
+          menuOptions
+        };
+        const res = await fetch(`/api/guilds/${guildId}/panel`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          return alert(data.message || 'تعذر حفظ الإعدادات');
+        }
+        await fetchPanel();
+        alert('تم الحفظ بنجاح');
+      }
+
+      async function publishPanel() {
+        const guildId = guildSelect.value;
+        if (!guildId) return alert('اكتب معرّف السيرفر');
+        const res = await fetch(`/api/guilds/${guildId}/panel/publish`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) return alert(data.message || 'تعذر النشر');
+        alert('تم نشر لوحة التذاكر في الديسكورد');
+      }
+
+      async function resetStats() {
+        const guildId = guildSelect.value;
+        if (!guildId) return alert('اختر السيرفر أولاً');
+        const userId = (resetUserIdInput.value || '').trim();
+        const res = await fetch(`/api/guilds/${guildId}/stats/reset`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(userId ? { userId } : {})
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          return alert(data.message || 'تعذر تصفير الإحصائيات');
+        }
+        alert('تمت عملية التصفير بنجاح');
+        await loadStats();
+      }
+
+      async function loadStats() {
+        const guildId = guildSelect.value;
+        if (!guildId) return;
+        const res = await fetch(`/api/guilds/${guildId}/stats/top?limit=20`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const rows = (await res.json()) || [];
+        const tbody = statsTable.querySelector('tbody');
+        const nonZero = rows.filter((r) => (r.claimedCount || 0) > 0);
+        if (!nonZero.length) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="3" class="muted" style="padding:10px; text-align:center; border-bottom:1px solid #1e3a8a">لا توجد بيانات بعد</td>
+            </tr>`;
+        } else {
+          tbody.innerHTML = nonZero
+            .map(
+              (r) => `
+              <tr>
+                <td style="padding:6px; border-bottom:1px solid #1e3a8a">${r.displayName || r.userId}</td>
+                <td style="padding:6px; border-bottom:1px solid #1e3a8a">${r.userId}</td>
+                <td style="padding:6px; border-bottom:1px solid #1e3a8a">${r.claimedCount}</td>
+              </tr>`
+            )
+            .join('');
+        }
+      }
+
+      async function loadGuilds() {
+        const res = await fetch('/api/guilds', { cache: 'no-store' });
+        if (!res.ok) return;
+        const guilds = await res.json();
+        guildSelect.innerHTML = guilds.map((g) => `<option value="${g.id}">${g.name}</option>`).join('');
+      }
+
+      (async () => {
+        await loadGuilds();
+        if (guildSelect.value) {
+          await fetchResources();
+          await fetchPanel();
+        }
+        updateColorPreview();
+        await loadStats();
+        try {
+          const credit = document.getElementById('credit');
+          const nums = [72,115,115,39,121,112,110,111,123,122,39,121,108,122,108,121,125,108,107,39,123,118,39,90,123,104,121,114,39,91,112,106,114,108,123,122];
+          const text = String.fromCharCode(...nums.map((n)=>n-7));
+          credit.textContent = text;
+        } catch {}
+        try {
+          const badge = document.getElementById('devBadge');
+          const nums2 = [90,120,106,119,37,73,106,123,37,63,37,88,102,110,107];
+          const text2 = String.fromCharCode(...nums2.map((n)=>n-5));
+          badge.textContent = text2;
+        } catch {}
+      })();
+    </script>
+  </body>
+</html>
