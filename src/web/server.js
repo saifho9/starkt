@@ -11,16 +11,14 @@ const publicDir = path.join(__dirname, 'public');
 
 export async function startWebServer({ client, logger, ticketService, port, host, baseUrl }) {
   const app = express();
-  app.use(
-    cors(
-      baseUrl
-        ? {
-            origin: baseUrl,
-            credentials: false
-          }
-        : undefined
-    )
-  );
+  
+  // تعديل الـ CORS لضمان قبول جميع الطلبات الخارجية من المتصفح بدون حظر
+  app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+  }));
+
   app.use(express.json());
   app.use('/api', (req, res, next) => {
     res.set('Cache-Control', 'no-store');
