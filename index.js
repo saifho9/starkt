@@ -69,7 +69,7 @@ async function bootstrap() {
         
         // --- نظام الموافقة على القوانين وإعطاء الرتبة ---
         if (interaction.customId === 'accept_rules_button') {
-          const roleId = 'ضع_أيدي_الرتبة_هنا'; // ⚠️ هام: ضع أيدي الرتبة الخاصة بالأعضاء هنا
+          const roleId = '1378729804651565206';
           const role = interaction.guild.roles.cache.get(roleId);
 
           if (!role) {
