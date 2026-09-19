@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Client, Events, GatewayIntentBits, Partials } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import mongoose from 'mongoose';
 import { createTicketService } from './src/services/ticketService.js';
 import { startWebServer } from './src/web/server.js';
@@ -13,6 +13,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent, // تم إضافة هذا السطر ليتمكن البوت من قراءة أمر !setup-rules
   ],
   partials: [Partials.Channel, Partials.Message]
 });
@@ -37,11 +38,54 @@ async function bootstrap() {
     logger.info(`تم تسجيل الدخول باسم ${c.user.tag}`);
   });
 
+  // حدث جديد لقراءة أمر إرسال رسالة القوانين
+  client.on(Events.MessageCreate, async (message) => {
+    if (message.content === '!setup-rules') {
+      if (!message.member.permissions.has('Administrator')) return;
+
+      const embed = new EmbedBuilder()
+        .setTitle('📜 قوانين السيرفر')
+        .setDescription('يرجى قراءة القوانين بتمعن. الضغط على الزر بالأسفل يعني موافقتك التامة على الشروط، وبناءً عليه سيتم فتح الرومات لك.')
+        .setColor('Blue');
+
+      const button = new ButtonBuilder()
+        .setCustomId('accept_rules_button')
+        .setLabel('موافق على الشروط')
+        .setStyle(ButtonStyle.Success)
+        .setEmoji('✅');
+
+      const row = new ActionRowBuilder().addComponents(button);
+
+      await message.channel.send({ embeds: [embed], components: [row] });
+      await message.delete().catch(() => {}); 
+    }
+  });
+
   client.on(Events.InteractionCreate, async (interaction) => {
     try {
       if (interaction.isStringSelectMenu() && interaction.customId.startsWith('ticket-panel:')) {
         await ticketService.handleSelectInteraction(interaction);
       } else if (interaction.isButton()) {
+        
+        // --- نظام الموافقة على القوانين وإعطاء الرتبة ---
+        if (interaction.customId === 'accept_rules_button') {
+          const roleId = 'ضع_أيدي_الرتبة_هنا'; // ⚠️ هام: ضع أيدي الرتبة الخاصة بالأعضاء هنا
+          const role = interaction.guild.roles.cache.get(roleId);
+
+          if (!role) {
+            return interaction.reply({ content: 'حدث خطأ: الرتبة غير موجودة، يرجى إبلاغ الإدارة.', ephemeral: true });
+          }
+
+          if (interaction.member.roles.cache.has(roleId)) {
+            return interaction.reply({ content: 'أنت تمتلك هذه الرتبة بالفعل وتم فتح الرومات لك!', ephemeral: true });
+          }
+
+          await interaction.member.roles.add(role);
+          return interaction.reply({ content: '✅ تم الموافقة على الشروط وإعطائك الرتبة بنجاح!', ephemeral: true });
+        }
+        // ---------------------------------------------
+
+        // إذا لم يكن الزر هو زر القوانين، سيتم توجيهه لنظام التيكت الطبيعي
         await ticketService.handleTicketButton(interaction);
       }
     } catch (error) {
@@ -59,7 +103,6 @@ async function bootstrap() {
   const host = process.env.HOST || '0.0.0.0';
   const baseUrl = process.env.BASE_URL || null;
 
-  // تشغيل الويب سيرفر وتسجيل دخول البوت معاً باستخدام Promise.all عشان مفيش حاجة تعطل التانية
   await Promise.all([
     startWebServer({ client, logger, ticketService, port, host, baseUrl }),
     client.login(DISCORD_TOKEN)
