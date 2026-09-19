@@ -1,5 +1,14 @@
 import 'dotenv/config';
-import { Client, Events, GatewayIntentBits, Partials, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
+import { 
+  Client, 
+  Events, 
+  GatewayIntentBits, 
+  Partials, 
+  ActionRowBuilder, 
+  ButtonBuilder, 
+  ButtonStyle, 
+  EmbedBuilder 
+} from 'discord.js';
 import mongoose from 'mongoose';
 import { createTicketService } from './src/services/ticketService.js';
 import { startWebServer } from './src/web/server.js';
@@ -13,7 +22,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent, // تم إضافة هذا السطر ليتمكن البوت من قراءة أمر !setup-rules
+    GatewayIntentBits.MessageContent, // تم تفعيل هذا الخيار ليتمكن البوت من قراءة أمر !setup-rules
   ],
   partials: [Partials.Channel, Partials.Message]
 });
@@ -38,18 +47,18 @@ async function bootstrap() {
     logger.info(`تم تسجيل الدخول باسم ${c.user.tag}`);
   });
 
-  // حدث جديد لقراءة أمر إرسال رسالة القوانين
+  // حدث قراءة أمر إرسال رسالة القوانين
   client.on(Events.MessageCreate, async (message) => {
     if (message.content === '!setup-rules') {
+      // التأكد من أن الشخص الذي كتب الأمر لديه صلاحية الإدارة
       if (!message.member.permissions.has('Administrator')) return;
 
-const embed = new EmbedBuilder()
-  .setAuthor({ 
-    name: 'شروط و أحكام مقاطعة ستارك', 
-    iconURL: 'ضع_رابط_لوجو_السيرفر_هنا' // يمكنك وضع رابط لوجو السيرفر هنا ليظهر بجانب الاسم
-  })
-  .setTitle('سياسة سيرفر مقاطعة ستارك')
-  .setDescription(`**أولاً: سياسة السيرفر**
+      const embed = new EmbedBuilder()
+        .setAuthor({ 
+          name: 'شروط و أحكام مقاطعة ستارك' 
+        })
+        .setTitle('سياسة سيرفر مقاطعة ستارك')
+        .setDescription(`**أولاً: سياسة السيرفر**
 بمجرد دخولك لسيرفر مقاطعة ستارك، أنت توافق على الالتزام بما يلي:
 
 • **الخيال مقابل الواقع:** جميع الأحداث والأسماء والأدوار داخل السيرفر خيالية تمامًا ولا تمت للواقع بصلة. لا يجوز تقليد أي سلوك في الحياة الواقعية. يجب أن يكون عمرك 16 سنة أو أكثر وأن تكون قادرًا على التمييز بين اللعبة والواقع.
@@ -81,7 +90,8 @@ const embed = new EmbedBuilder()
 • يمنع السب والقذف والشتم في جميع القنوات.
 • يمنع الحديث عن السياسة أو الدين.
 • يمنع تكوين تجمعات للاعبين أو الوظائف خارج ديسكورد الرسمي للسيرفر.`)
-  .setColor('Blue');
+        .setColor('Blue');
+
       const button = new ButtonBuilder()
         .setCustomId('accept_rules_button')
         .setLabel('موافق على الشروط')
@@ -90,8 +100,12 @@ const embed = new EmbedBuilder()
 
       const row = new ActionRowBuilder().addComponents(button);
 
-      await message.channel.send({ embeds: [embed], components: [row] });
-      await message.delete().catch(() => {}); 
+      try {
+        await message.channel.send({ embeds: [embed], components: [row] });
+        await message.delete().catch(() => {}); // حذف رسالة الأمر لتنظيف الروم
+      } catch (error) {
+        logger.error('خطأ في إرسال رسالة القوانين. تأكد من إعطاء البوت صلاحية Send Messages و Embed Links في الروم:', error);
+      }
     }
   });
 
@@ -114,8 +128,13 @@ const embed = new EmbedBuilder()
             return interaction.reply({ content: 'أنت تمتلك هذه الرتبة بالفعل وتم فتح الرومات لك!', ephemeral: true });
           }
 
-          await interaction.member.roles.add(role);
-          return interaction.reply({ content: '✅ تم الموافقة على الشروط وإعطائك الرتبة بنجاح!', ephemeral: true });
+          try {
+            await interaction.member.roles.add(role);
+            return interaction.reply({ content: '✅ تم الموافقة على الشروط وإعطائك الرتبة بنجاح!', ephemeral: true });
+          } catch (roleError) {
+            logger.error('خطأ في إعطاء الرتبة:', roleError);
+            return interaction.reply({ content: '❌ البوت لا يمتلك صلاحية إعطاء هذه الرتبة، تأكد أن رتبة البوت أعلى من الرتبة المراد إعطاؤها.', ephemeral: true });
+          }
         }
         // ---------------------------------------------
 
