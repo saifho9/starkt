@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1020" />
+  <title>ستارك | إدارة التذاكر والقطاعات</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <form id="loginForm" class="login-card">
+      <div class="brand-mark">S</div><span class="eyebrow" dir="ltr">STARK CONTROL</span>
+      <h1>أهلًا بك في لوحة ستارك</h1>
+      <p class="muted">سجّل الدخول لإدارة لوحات التذاكر والقطاعات.</p>
+      <label for="password">كلمة المرور</label>
+      <input id="password" type="password" autocomplete="current-password" required maxlength="256" />
+      <button id="loginButton" type="submit">دخول لوحة التحكم</button>
+      <p class="hint">استخدم كلمة المرور المحددة في إعدادات التشغيل. إذا لم تحددها، ستجد كلمة مؤقتة في سجل تشغيل البوت.</p>
+      <p id="loginError" class="error-text" role="alert"></p>
+    </form>
+  </section>
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark">S</div><div><strong>ستارك</strong><span>إدارة التذاكر والقطاعات</span></div></div>
+      <div class="topbar-actions"><span id="connectionStatus" class="status-badge">جارٍ الاتصال</span><label class="sr-only" for="guildSelect">السيرفر</label><select id="guildSelect" data-lock></select><button id="logout" class="ghost">خروج</button></div>
+    </header>
+    <div class="workspace">
+      <nav class="tabs" aria-label="أقسام لوحة التحكم">
+        <button data-tab="panels" class="tab active" aria-pressed="true">لوحات التذاكر <span id="panelCount" class="count">0</span></button>
+        <button data-tab="tickets" class="tab" aria-pressed="false">التذاكر المفتوحة</button>
+        <button data-tab="stats" class="tab" aria-pressed="false">إحصائيات الطاقم</button>
+        <button data-tab="sectors" class="tab" aria-pressed="false">رتب القطاعات</button>
+      </nav>
+      <div id="notice" class="notice" hidden role="status" aria-live="polite"></div>
+      <section id="tab-panels" class="tab-view">
+        <div class="page-heading"><div><span class="eyebrow">مساحة الإدارة</span><h1>لوحات التذاكر</h1><p class="muted">كل لوحة مرتبطة برسالتها، ولكل قطاع وجهته وطاقمه.</p></div><button id="newPanel" data-lock>+ لوحة جديدة</button></div>
+        <div class="panels-layout">
+          <aside class="panel-library card">
+            <div class="section-title"><h2>كل اللوحات المحفوظة</h2><button id="reloadPanels" class="icon-button ghost" title="تحديث اللوحات" aria-label="تحديث اللوحات" data-lock>↻</button></div>
+            <label class="sr-only" for="panelSearch">ابحث عن لوحة</label><input id="panelSearch" type="search" placeholder="ابحث باسم اللوحة أو القناة…" />
+            <div id="panelList" class="panel-list"></div>
+            <div class="discovery-box"><p id="discoveryStatus" class="hint">جارٍ تحميل حالة اللوحات القديمة…</p><button id="discover" class="secondary small" data-lock>فحص الرسائل القديمة</button></div>
+          </aside>
+          <div class="editor-column">
+            <div class="editor-toolbar card"><div><span class="eyebrow">إعدادات اللوحة</span><h2 id="editorTitle">لوحة جديدة</h2></div><div class="actions"><a id="panelDiscordLink" class="button ghost" target="_blank" rel="noopener" hidden>فتح الرسالة ↗</a><button id="savePanel" class="secondary" data-lock>حفظ</button><button id="publishPanel" data-lock>حفظ ونشر</button></div></div>
+            <form id="panelForm"><fieldset id="panelFields">
+              <div id="recoveryWarning" class="review-box" hidden><strong>هذه اللوحة تحتاج مراجعة الوجهة</strong><p id="recoveryNote"></p><label class="check-label"><input id="confirmRecovery" type="checkbox" /> راجعت تصنيف وطاقم كل خيار، وأعتمد هذه الإعدادات</label></div>
+              <section class="card form-section"><div class="section-title"><h2><span class="step">١</span> الاسم والوجهة</h2><span class="muted">إعدادات مستقلة لهذه اللوحة</span></div>
+                <label for="panelName">اسم اللوحة داخل لوحة التحكم</label><input id="panelName" maxlength="100" placeholder="مثلًا: قطاع الشرطة" />
+                <div class="form-grid"><div><label for="channelId">قناة رسالة اللوحة</label><select id="channelId" required></select></div><div><label for="ticketCategoryId">التصنيف الافتراضي للتذاكر</label><select id="ticketCategoryId"></select></div></div>
+                <label>طاقم اللوحة الافتراضي</label><div id="staffPicker"></div><p class="hint">هذه الرتب ترى تذاكر اللوحة وتستلمها. يمكنك تحديد طاقم مختلف لكل خيار أدناه.</p>
+              </section>
+              <section class="card form-section"><div class="section-title"><h2><span class="step">٢</span> الرسالة والمظهر</h2></div>
+                <label for="panelContent">نص أعلى رسالة اللوحة <span class="muted">اختياري</span></label><textarea id="panelContent" maxlength="2000" rows="2"></textarea>
+                <label for="embedTitle">العنوان</label><input id="embedTitle" maxlength="256" required />
+                <label for="embedDescription">الوصف</label><textarea id="embedDescription" maxlength="4096" rows="3" required></textarea>
+                <div class="form-grid"><div><label for="embedImageUrl">رابط الصورة <span class="muted">اختياري</span></label><input id="embedImageUrl" type="url" dir="ltr" placeholder="https://…" maxlength="2048" /></div><div><label for="embedColor">لون الرسالة</label><input id="embedColor" type="color" value="#3b82f6" /></div></div>
+                <label for="selectPlaceholder">نص قائمة الاختيارات</label><input id="selectPlaceholder" maxlength="150" placeholder="اختر نوع التذكرة" />
+                <label for="ticketMessage">رسالة الترحيب داخل التذكرة</label><textarea id="ticketMessage" maxlength="4000" rows="3" placeholder="يرجى وصف طلبك وسيقوم الفريق بمساعدتك."></textarea>
+              </section>
+              <section class="card form-section"><div class="section-title"><h2><span class="step">٣</span> خيارات فتح التذاكر <span id="menuCount" class="count">0/25</span></h2><button id="addMenuOption" type="button" class="secondary small">+ إضافة خيار</button></div><p class="hint">الخيار يستخدم التصنيف والطاقم الافتراضيين ما لم تحدد له وجهة خاصة.</p><div id="menuOptions"></div></section>
+              <section class="card form-section"><div class="section-title"><h2><span class="step">٤</span> قنوات السجل</h2><span class="muted">اختياري</span></div><div class="form-grid"><div><label for="claimLogChannelId">سجل الاستلام</label><select id="claimLogChannelId"></select></div><div><label for="closeLogChannelId">سجل الإغلاق</label><select id="closeLogChannelId"></select></div></div></section>
+            </fieldset></form>
+            <p class="hint footer-note">الحفظ يعدّل الإعدادات المسودة. «حفظ ونشر» يحدّث نفس رسالة اللوحة في ديسكورد؛ التذاكر المفتوحة تظل بصلاحياتها الحالية.</p>
+          </div>
+        </div>
+      </section>
+      <section id="tab-tickets" class="tab-view" hidden>
+        <div class="page-heading"><div><span class="eyebrow">المتابعة المباشرة</span><h1>كل التذاكر المفتوحة</h1><p class="muted">تشمل التذاكر القديمة الموجودة قبل هذا التحديث.</p></div><button id="refreshTickets" class="secondary" data-lock>تحديث التذاكر</button></div>
+        <div class="card"><label class="sr-only" for="ticketSearch">ابحث عن تذكرة</label><input id="ticketSearch" type="search" placeholder="ابحث باسم التذكرة أو التصنيف أو معرّف العضو…" /><div id="ticketsTable" class="table-wrap"></div></div>
+      </section>
+      <section id="tab-stats" class="tab-view" hidden>
+        <div class="page-heading"><div><span class="eyebrow">فريق الدعم</span><h1>إحصائيات الاستلام</h1><p class="muted">تُحتسب كل تذكرة مرة واحدة عند استلامها.</p></div><button id="refreshStats" class="secondary" data-lock>تحديث الإحصائيات</button></div>
+        <div class="card"><div id="statsTable" class="table-wrap"></div><div class="reset-box"><div><label for="resetUserId">تصفير إحصائيات عضو محدد</label><input id="resetUserId" inputmode="numeric" placeholder="معرّف العضو؛ اتركه فارغًا لتصفير الجميع" /></div><button id="resetStats" class="danger" data-lock>تصفير الإحصائيات</button></div></div>
+      </section>
+      <section id="tab-sectors" class="tab-view" hidden>
+        <div class="page-heading"><div><span class="eyebrow">الصلاحيات</span><h1>رتب القطاعات</h1><p class="muted">المسؤول المحدد لكل قطاع يمكنه منح رتب ذلك القطاع فقط.</p></div><button id="refreshSectors" class="secondary" data-lock>تحديث الرتب</button></div>
+        <div class="card command-guide"><h2>أمر واحد، رتبة أو أكثر</h2><code dir="ltr">/give role member:@الشخص roles:@رتبة1 @رتبة2 @رتبة3</code><p class="hint">النطاق يشمل أول وآخر رتبة وكل الرتب بينهما حسب ترتيب السيرفر. يجب أن تكون رتبة البوت أعلى من الرتب التي سيمنحها.</p></div><div id="sectorsList" class="sectors-grid"></div>
+      </section>
+      <footer class="workspace-footer"><span dir="ltr">STARK • TICKETS & SECTORS</span><span dir="ltr">Stark Dev : Saif</span></footer>
+    </div>
+  </div>
+  <dialog id="ticketDialog"><form id="ticketEditForm"><h2>تعديل تذكرة مفتوحة</h2><p class="hint">نقل التذكرة يحافظ على صلاحياتها الحالية.</p><label for="ticketEditName">اسم التذكرة</label><input id="ticketEditName" required maxlength="100" /><label for="ticketEditCategory">التصنيف</label><select id="ticketEditCategory"></select><div class="actions"><button type="submit">حفظ التعديل</button><button id="cancelTicketEdit" class="ghost" type="button">إلغاء</button></div></form></dialog>
+</body>
+</html>

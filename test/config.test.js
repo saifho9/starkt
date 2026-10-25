@@ -1,0 +1,23 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { normalizePanel, getOptionRoute, parseTicketTopic } from '../src/services/ticketConfig.js';
+import { TicketPanel } from '../src/models/ticketPanel.js';
+import { Ticket } from '../src/models/ticket.js';
+import { createSerialQueue } from '../src/utils/locks.js';
+import { panelData, GUILD, USER, PANEL_ID, MECHANIC_CATEGORY } from './helpers.js';
+
+test('normalization preserves fields omitted by a partial update', () => { const old = normalizePanel(panelData({ panelContent: 'نص قديم', ticketMessage: 'ترحيب', embedColor: '#000000' })); const next = normalizePanel({ name: 'اسم جديد' }, old); assert.equal(next.panelContent, old.panelContent); assert.equal(next.ticketMessage, old.ticketMessage); assert.equal(next.embedColor, 0); assert.deepEqual(next.menuOptions, old.menuOptions); });
+test('optional fields can be explicitly cleared', () => assert.equal(normalizePanel({ ticketCategoryId: '' }, normalizePanel(panelData())).ticketCategoryId, ''));
+test('identity and publish state cannot be overwritten by web payload', () => { const next = normalizePanel(panelData({ guildId: 'evil', _id: PANEL_ID, messageId: 'bad', needsReview: false })); for (const field of ['guildId', '_id', 'messageId', 'needsReview']) assert.ok(!Object.hasOwn(next, field)); });
+test('new menu values generated and existing values retained', () => { const p = normalizePanel(panelData({ menuOptions: [{ label: 'أ' }, { label: 'ب', value: 'keep' }] })); assert.ok(p.menuOptions[0].value); assert.equal(p.menuOptions[1].value, 'keep'); });
+test('duplicate option values rejected', () => assert.throws(() => normalizePanel(panelData({ menuOptions: [{ label: 'أ', value: 'same' }, { label: 'ب', value: 'same' }] })), /مختلفة/));
+test('empty menu and more than 25 options rejected', () => { for (const menuOptions of [[], Array.from({ length: 26 }, (_, i) => ({ label: `opt${i}`, value: `v${i}` }))]) assert.throws(() => normalizePanel(panelData({ menuOptions }))); });
+test('invalid category ID, role ID and image scheme rejected', () => { for (const data of [{ ticketCategoryId: '123' }, { staffRoleIds: ['x'] }, { embedImageUrl: 'javascript:alert(1)' }, { embedColor: '#invalid' }, { embedColor: -1 }, { name: '<'.repeat(101) }]) assert.throws(() => normalizePanel(panelData(data))); });
+test('route override is independent of panel default', () => { const p = normalizePanel(panelData({ menuOptions: [{ label: 'م', value: 'mechanic', ticketCategoryId: MECHANIC_CATEGORY, staffRoleIds: [] }] })); const route = getOptionRoute(p, 'mechanic'); assert.equal(route.categoryId, MECHANIC_CATEGORY); assert.deepEqual(route.staffRoleIds, []); });
+test('route inherits omitted staff roles but not explicit empty staff', () => { const p = normalizePanel(panelData()); assert.deepEqual(getOptionRoute(p, 'police').staffRoleIds, p.staffRoleIds); });
+test('unknown selected value rejected without a fallback destination', () => assert.throws(() => getOptionRoute(normalizePanel(panelData()), 'removed'), /لم يعد موجودًا/));
+test('old and new channel topics are recognized, malformed topics rejected', () => { for (const suffix of ['', ' option:police']) assert.deepEqual(parseTicketTopic(`ticket:${USER}:panel:${PANEL_ID}${suffix}`), { ownerId: USER, panelId: PANEL_ID }); for (const value of [null, 'not a ticket', `prefix ticket:${USER}:panel:${PANEL_ID}`, 'ticket:1:panel:x']) assert.equal(parseTicketTopic(value), null); });
+test('existing TicketPanel Mongo collection name preserved', () => assert.equal(TicketPanel.collection.collectionName, 'ticketpanels'));
+test('new reservation and channel indexes enforce uniqueness', () => { const indexes = Ticket.schema.indexes(); assert.ok(indexes.some(([keys, opts]) => keys.activeKey && opts.unique && opts.sparse)); assert.ok(indexes.some(([keys, opts]) => keys.channelId && opts.unique && opts.sparse)); });
+test('legacy panel documents remain valid without new fields', async () => { const p = new TicketPanel({ ...normalizePanel(panelData()), guildId: GUILD }); await p.validate(); assert.equal(p.needsReview, false); assert.equal(p.menuOptions[0].staffRoleIds, undefined); });
+test('serial queue survives rejected task and orders same-key writes', async () => { const serialize = createSerialQueue(), values = []; const a = serialize('one', async () => { await Promise.resolve(); values.push(1); throw new Error('test'); }); const b = serialize('one', async () => { values.push(2); }); const out = await Promise.allSettled([a, b]); assert.equal(out[0].status, 'rejected'); assert.equal(out[1].status, 'fulfilled'); assert.deepEqual(values, [1, 2]); });
